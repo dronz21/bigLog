@@ -1,12 +1,16 @@
 {
   "name": "my-grammy-bot",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Telegram bot on grammy",
+  "main": "src/bot.js",
+  "type": "module",
   "scripts": {
+    "dev": "node ./src/bot.js",
+    "start": "node ./src/bot.js",
+    "deploy": "vercel --prod",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["telegram", "bot", "grammy"],
   "author": "",
   "license": "ISC",
   "dependencies": {
