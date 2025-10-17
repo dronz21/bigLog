@@ -1,41 +1,36 @@
-// src/bot.js
-import dotenv from "dotenv";
+import "dotenv/config";
 import { Bot } from "grammy";
+import { createClient } from "@supabase/supabase-js";
+import { Redis } from "@upstash/redis";
 
-dotenv.config();
+const bot = new Bot(process.env.BOT_TOKEN);
 
-// проверка токена
-const token = process.env.BOT_TOKEN;
-if (!token) {
-  console.error("Ошибка: не задан BOT_TOKEN в файле .env (или в переменных окружения).");
-  process.exit(1);
-}
+// Supabase
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// создаём бот и хэндлеры (без bot.start(), нужен для webhooks)
-const bot = new Bot(token);
-
-bot.command("start", (ctx) => ctx.reply("Привет! Я бот на Vercel 🚀"));
-bot.command("help", (ctx) => ctx.reply("Список команд: /start /help"));
-
-// обработчики необработанных ошибок
-process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled Rejection:", reason);
-});
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err);
+// Redis
+const redis = new Redis({
+  url: process.env.UPSTASH_URL,
+  token: process.env.UPSTASH_TOKEN,
 });
 
-// попытка зарегистрировать команды в Telegram (не критичная)
-(async () => {
-  try {
-    await bot.api.setMyCommands([
-      { command: "start", description: "Запустить бота" },
-      { command: "help", description: "Помощь" },
-    ]);
-    console.log("Команды зарегистрированы.");
-  } catch (err) {
-    console.warn("Не удалось зарегистрировать команды:", err && err.message ? err.message : err);
-  }
-})();
+// Команда /start
+bot.command("start", async (ctx) => {
+  const user = ctx.from;
+  await supabase.from("users").upsert({
+    telegram_id: user.id,
+    username: user.username,
+  });
+  await redis.set(`user:${user.id}`, user.username);
+  await ctx.reply(`Привет, ${user.first_name}!`);
+});
 
-export default bot;
+// Проверка
+bot.command("whoami", async (ctx) => {
+  const name = await redis.get(`user:${ctx.from.id}`);
+  ctx.reply(`Ты: ${name}`);
+});
+
+// Запуск
+bot.start();
+console.log("Бот запущен ✅");
