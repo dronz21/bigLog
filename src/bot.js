@@ -53,20 +53,51 @@ bot.command("start", async (ctx) => {
   }
 });
 
-// Команда /whoami
-bot.command("whoami", async (ctx) => {
-  try {
-    const name = await redis.get(`user:${ctx.from.id}`);
-    ctx.reply(`Ты: ${name}`);
-  } catch (err) {
-    console.error("Ошибка при выполнении команды /whoami:", err);
-    await ctx.reply("Произошла ошибка при обработке команды. Попробуйте позже.");
+bot.command('start', async (ctx) => {
+  const menu = [
+    [
+      { text: 'Выход', callback_data: 'exit' },
+      { text: 'Регистрация', callback_data: 'register' },
+    ],
+    [{ text: 'Знакомство с ботом', callback_data: 'info' }],
+  ];
+
+  await ctx.reply('Привет! Выберите действие:', {
+    reply_markup: {
+      inline_keyboard: menu,
+    },
+  });
+});
+
+bot.on('callback_query', async (ctx) => {
+  const callbackData = ctx.callbackQuery.data;
+
+  if (callbackData === 'exit') {
+    await ctx.answerCallbackQuery();
+    await ctx.reply('До новых встреч!');
+  }
+
+  if (callbackData === 'register') {
+    await ctx.answerCallbackQuery();
+    await ctx.reply('Введите ваше ФИО:');
+    bot.on('message', async (msgCtx) => {
+      const userName = msgCtx.text;
+      await msgCtx.reply('Введите марку авто:');
+      bot.on('message', async (msgCtx2) => {
+        const carModel = msgCtx2.text;
+        await msgCtx2.reply('Введите номер для связи:');
+        bot.on('message', async (msgCtx3) => {
+          const phoneNumber = msgCtx3.text;
+          await msgCtx3.reply(`Вы зарегистрированы!\nФИО: ${userName}\nМарка авто: ${carModel}\nНомер: ${phoneNumber}`);
+        });
+      });
+    });
+  }
+
+  if (callbackData === 'info') {
+    await ctx.answerCallbackQuery();
+    await ctx.reply('Посмотрите видеопрезентацию на следующем сайте: https://example.com');
   }
 });
 
-// Запуск бота
-bot.start().then(() => {
-  console.log("Бот запущен ✅");
-}).catch((err) => {
-  console.error("Ошибка при запуске бота:", err);
-});
+bot.start();
