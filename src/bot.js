@@ -1,8 +1,13 @@
 // === Импорты ===
+import 'dotenv/config';
 import express from "express";
-import { webhookCallback } from "grammy";
+import { Bot, webhookCallback } from "grammy";   // ✅ добавили Bot
 import { createClient } from "@supabase/supabase-js";
 import { Redis } from "@upstash/redis";
+
+// === Инициализация бота ===
+const bot = new Bot(process.env.BOT_TOKEN); // ✅ создаём объект бота
+console.log("🤖 Бот запущен с токеном:", process.env.BOT_TOKEN ? "✅ найден" : "❌ отсутствует");
 
 // === Подключение к Supabase ===
 console.log("Supabase URL:", process.env.SUPABASE_URL);
@@ -71,3 +76,4 @@ app.listen(PORT, async () => {
     console.error("❌ Ошибка при установке webhook:", err);
   }
 });
+
