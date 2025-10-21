@@ -1,103 +1,31 @@
-import "dotenv/config";
-import { Bot } from "grammy";
-import { createClient } from "@supabase/supabase-js";
-import { Redis } from "@upstash/redis";
-
-// Проверка переменных окружения
-if (!process.env.BOT_TOKEN || !process.env.SUPABASE_URL || !process.env.SUPABASE_KEY || !process.env.UPSTASH_URL || !process.env.UPSTASH_TOKEN) {
-  console.error("Ошибка: Не все необходимые переменные окружения заданы.");
-  process.exit(1); // Завершаем процесс, если переменные окружения отсутствуют
-}
+import express from 'express';
+import { Bot, webhookCallback } from 'grammy';
 
 const bot = new Bot(process.env.BOT_TOKEN);
 
-// Логируем параметры подключения для отладки
-console.log('Supabase URL:', process.env.SUPABASE_URL);
-console.log('Upstash URL:', process.env.UPSTASH_URL);
-
-// Supabase
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
-// Redis
-const redis = new Redis({
-  url: process.env.UPSTASH_URL,
-  token: process.env.UPSTASH_TOKEN,
-});
-
-// Проверка подключения к Redis
-redis.set("test_key", "test_value")
-  .then(() => console.log("Redis подключен успешно"))
-  .catch((err) => {
-    console.error("Ошибка при подключении к Redis:", err);
-    process.exit(1); // Завершаем процесс, если Redis не подключается
-  });
-
-// Команда /start
-bot.command("start", async (ctx) => {
-  const user = ctx.from;
-  
-  try {
-    // Запись данных пользователя в Supabase
-    await supabase.from("users").upsert({
-      telegram_id: user.id,
-      username: user.username,
-    });
-
-    // Запись данных пользователя в Redis
-    await redis.set(`user:${user.id}`, user.username);
-
-    await ctx.reply(`Привет, ${user.first_name}!`);
-  } catch (err) {
-    console.error("Ошибка при выполнении команды /start:", err);
-    await ctx.reply("Произошла ошибка при обработке команды. Попробуйте позже.");
-  }
-});
-
+// === Пример простой команды ===
 bot.command('start', async (ctx) => {
-  const menu = [
-    [
-      { text: 'Выход', callback_data: 'exit' },
-      { text: 'Регистрация', callback_data: 'register' },
-    ],
-    [{ text: 'Знакомство с ботом', callback_data: 'info' }],
-  ];
-
-  await ctx.reply('Привет! Выберите действие:', {
-    reply_markup: {
-      inline_keyboard: menu,
-    },
-  });
+  await ctx.reply('Привет! Я работаю через Webhook 🎯');
 });
 
-bot.on('callback_query', async (ctx) => {
-  const callbackData = ctx.callbackQuery.data;
+// === Создаём express-сервер ===
+const app = express();
 
-  if (callbackData === 'exit') {
-    await ctx.answerCallbackQuery();
-    await ctx.reply('До новых встреч!');
-  }
+// Обрабатываем обновления Telegram через /webhook
+app.use(express.json());
+app.use('/webhook', webhookCallback(bot, 'express'));
 
-  if (callbackData === 'register') {
-    await ctx.answerCallbackQuery();
-    await ctx.reply('Введите ваше ФИО:');
-    bot.on('message', async (msgCtx) => {
-      const userName = msgCtx.text;
-      await msgCtx.reply('Введите марку авто:');
-      bot.on('message', async (msgCtx2) => {
-        const carModel = msgCtx2.text;
-        await msgCtx2.reply('Введите номер для связи:');
-        bot.on('message', async (msgCtx3) => {
-          const phoneNumber = msgCtx3.text;
-          await msgCtx3.reply(`Вы зарегистрированы!\nФИО: ${userName}\nМарка авто: ${carModel}\nНомер: ${phoneNumber}`);
-        });
-      });
-    });
-  }
+// === Запускаем сервер на Render ===
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, async () => {
+  console.log(`✅ Сервер запущен на порту ${PORT}`);
 
-  if (callbackData === 'info') {
-    await ctx.answerCallbackQuery();
-    await ctx.reply('Посмотрите видеопрезентацию на следующем сайте: https://example.com');
+  const webhookUrl = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/webhook`;
+
+  try {
+    await bot.api.setWebhook(webhookUrl);
+    console.log(`🚀 Webhook установлен: ${webhookUrl}`);
+  } catch (err) {
+    console.error('❌ Ошибка при установке webhook:', err);
   }
 });
-
-bot.start();

@@ -8,3 +8,6 @@ export default async function handler(req, res) {
     res.status(200).send('Bot is running!');
   }
 }
+const express = require('express');
+const cors = require('cors');
+const app = express();
